@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: indonesian-poker-server
+    runtime: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
