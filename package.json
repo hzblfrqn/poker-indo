@@ -10,6 +10,7 @@
     "build": "npm run --prefix client build",
     "build:client": "npm run --prefix client build",
     "start:server": "npm run --prefix server start",
+    "tunnel": ".\\cloudflared.exe tunnel --url http://localhost:5173",
     "test": "npm run --prefix server test"
   },
   "devDependencies": {

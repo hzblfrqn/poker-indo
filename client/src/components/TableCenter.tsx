@@ -41,19 +41,23 @@ export const TableCenter: React.FC<TableCenterProps> = ({
             </span>
           </div>
 
-          {/* Cards fan display */}
+          {/* Cards fan display with entrance animation */}
           <div className="flex items-center justify-center -space-x-4 sm:-space-x-5 py-1">
-            {latestPlay.combination.cards.map((card, idx) => (
-              <div
-                key={card.id}
-                className="transform transition-transform hover:scale-110 hover:-translate-y-2 z-10 hover:z-30 duration-150"
-                style={{
-                  transform: `rotate(${(idx - (latestPlay.combination.cards.length - 1) / 2) * 5}deg)`,
-                }}
-              >
-                <CardView card={card} size="md" disabled />
-              </div>
-            ))}
+            {latestPlay.combination.cards.map((card, idx) => {
+              const rotation = (idx - (latestPlay.combination.cards.length - 1) / 2) * 5;
+              return (
+                <div
+                  key={`${latestPlay.timestamp}-${card.id}`}
+                  className="animate-card-play transform transition-transform hover:scale-110 hover:-translate-y-2 z-10 hover:z-30 duration-150"
+                  style={{
+                    animationDelay: `${idx * 0.08}s`,
+                    transform: `rotate(${rotation}deg)`,
+                  }}
+                >
+                  <CardView card={card} size="md" disabled />
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : openingThreesShowcase && openingThreesShowcase.length > 0 ? (

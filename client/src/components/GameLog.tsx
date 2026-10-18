@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { GameLogEntry } from '@shared/types';
 import { MessageSquare, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import { sounds } from '../utils/audio';
 
 interface GameLogProps {
   logs: GameLogEntry[];
@@ -10,10 +11,31 @@ interface GameLogProps {
 export const GameLog: React.FC<GameLogProps> = ({ logs, onSendMessage }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [recentChatToast, setRecentChatToast] = useState<{ id: string; text: string } | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const prevLogsLengthRef = useRef(logs.length);
+
+  // Trigger toast & sound whenever a new chat message arrives while chatbox is closed
+  useEffect(() => {
+    if (logs.length > prevLogsLengthRef.current) {
+      const latest = logs[logs.length - 1];
+      if (latest && latest.type === 'chat') {
+        sounds.playChatNotification();
+        if (!isOpen) {
+          setRecentChatToast({ id: latest.id, text: latest.text });
+          const timer = setTimeout(() => {
+            setRecentChatToast((curr) => (curr?.id === latest.id ? null : curr));
+          }, 6000);
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+    prevLogsLengthRef.current = logs.length;
+  }, [logs, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
+      setRecentChatToast(null);
       logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [logs, isOpen]);
@@ -45,6 +67,30 @@ export const GameLog: React.FC<GameLogProps> = ({ logs, onSendMessage }) => {
 
   return (
     <div className="fixed bottom-4 left-4 z-40 max-w-xs sm:max-w-sm w-full">
+      {/* Floating Chat Bubble Toast in the left corner above chatbox */}
+      {!isOpen && recentChatToast && (
+        <div
+          onClick={() => {
+            setIsOpen(true);
+            setRecentChatToast(null);
+          }}
+          className="mb-2 p-2.5 rounded-2xl bg-gradient-to-r from-purple-950/95 via-slate-900/95 to-slate-900/95 border border-purple-500/70 shadow-[0_8px_25px_rgba(168,85,247,0.35)] backdrop-blur-md cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-200 transition-all hover:scale-102 flex items-start gap-2.5"
+        >
+          <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white flex-shrink-0 mt-0.5 shadow-sm">
+            <MessageSquare size={13} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">New Chat</span>
+              <span className="text-[9px] text-slate-400">Click to open</span>
+            </div>
+            <p className="text-xs text-white font-medium break-words line-clamp-2">
+              {recentChatToast.text}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header bar */}
       <button
         onClick={() => setIsOpen(!isOpen)}

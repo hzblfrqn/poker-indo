@@ -4,7 +4,7 @@ export const RANKS: readonly Rank[] = [
   '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'
 ] as const;
 
-export const SUITS: readonly Suit[] = ['C', 'D', 'H', 'S'] as const;
+export const SUITS: readonly Suit[] = ['D', 'C', 'H', 'S'] as const;
 
 export const RANK_VALUES: Record<Rank, number> = {
   '3': 0,
@@ -23,8 +23,8 @@ export const RANK_VALUES: Record<Rank, number> = {
 };
 
 export const DEFAULT_SUIT_VALUES: Record<Suit, number> = {
-  'C': 0, // Clubs (lowest)
-  'D': 1, // Diamonds
+  'D': 0, // Diamonds (lowest)
+  'C': 1, // Clubs
   'H': 2, // Hearts
   'S': 3, // Spades (highest)
 };

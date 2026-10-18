@@ -136,6 +136,6 @@ describe('Bot AI Decision Engine', () => {
     };
 
     const play = chooseBotPlay(hand, targetPlay, false, DEFAULT_GAME_SETTINGS);
-    expect(play).toEqual(['9_C', '9_D', '9_H', '9_S']);
+    expect(play).toEqual(['9_D', '9_C', '9_H', '9_S']);
   });
 });

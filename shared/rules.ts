@@ -2,7 +2,7 @@ import type { GameSettings, PlayerPublic, PlayerSeat } from './types.js';
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
   turnTimeLimitSeconds: 0, // 0 = no time limit
-  suitRankingOrder: ['C', 'D', 'H', 'S'],
+  suitRankingOrder: ['D', 'C', 'H', 'S'],
   bombStraightFlushBeatsFourOfAKind: true,
 };
 

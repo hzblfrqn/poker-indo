@@ -46,7 +46,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
               Suits rank from lowest to highest (for tie-breaking):
             </p>
             <div className="p-2 rounded-lg bg-slate-950 font-mono text-center text-xs border border-slate-800 text-slate-200">
-              ♣ Clubs (lowest) &lt; ♦ Diamonds &lt; ♥ Hearts &lt; ♠ Spades (highest)
+              ♦ Diamonds (lowest) &lt; ♣ Clubs &lt; ♥ Hearts &lt; ♠ Spades (highest)
             </div>
           </section>
 
@@ -54,10 +54,10 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
           <section className="space-y-2">
             <h3 className="font-bold text-amber-300 text-base">2. Starting the Game (Opening 3s)</h3>
             <p className="text-slate-300">
-              At the very start of the first game, <strong>every player places their 3s on the table</strong> (3♣, 3♦, 3♥, 3♠).
+              On the <strong>very first game of the room</strong>, every player places their 3s on the table. The player who held the <strong>3 of Spades (3♠)</strong> leads the first trick with any combination from their hand.
             </p>
-            <p className="text-slate-300">
-              The player who held the highest 3, which is the <strong>3 of Spades (3♠)</strong>, wins the opening phase and leads the next trick with any combination from their remaining hand!
+            <p className="text-amber-200 text-xs">
+              <strong>Rematch Rule:</strong> The 3s rule applies <em>only</em> to the very first game! In subsequent games in the room, everyone keeps all 13 cards dealt to them, and the <strong>winner of the previous game</strong> goes first.
             </p>
           </section>
 
@@ -77,7 +77,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
             <h3 className="font-bold text-amber-300 text-base">4. Valid Combinations</h3>
             <ul className="space-y-2 text-xs sm:text-sm">
               <li className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800">
-                <strong className="text-white">Single (1 Card):</strong> Higher rank beats lower. Ties broken by suit (♠ beats ♥ beats ♦ beats ♣).
+                <strong className="text-white">Single (1 Card):</strong> Higher rank beats lower. Ties broken by suit (♠ beats ♥ beats ♣ beats ♦).
               </li>
               <li className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800">
                 <strong className="text-white">Pair (2 Cards):</strong> Two cards of identical rank (e.g. 8♦ 8♠). Higher pair rank beats lower.
@@ -117,8 +117,8 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
                 <span className="font-bold text-amber-300">Five-Card Straight Flush (5 Cards):</span> Five consecutive cards of identical suit (e.g. 5♠ 6♠ 7♠ 8♠ 9♠).
               </div>
             </div>
-            <p className="text-xs text-amber-200 mt-2">
-              When a 2 is bombed, the trick ends immediately! The bomber wins the challenge and leads the next trick.
+            <p className="text-xs text-rose-300 font-bold mt-2">
+              💥 Instant Knockout: When a Single 2 is bombed, the game ends immediately! The player who played the Single 2 loses (4th Place), and the bomber wins 1st Place!
             </p>
           </section>
 

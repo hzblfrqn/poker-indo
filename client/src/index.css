@@ -52,6 +52,26 @@
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
 }
 
+/* Card Played onto Table Animation */
+@keyframes playCardOntoTable {
+  0% {
+    opacity: 0;
+    transform: translateY(50px) scale(0.65) rotate(0deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-card-play {
+  animation: playCardOntoTable 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+}
+
 /* Glassmorphism Panels */
 .glass-panel {
   background: rgba(15, 23, 42, 0.75);

@@ -72,9 +72,12 @@ export class Room {
   public roundNumber = 1;
   public isFirstTrickOfGame = true;
   public winnerPlayerId: string | null = null;
+  public finishedRankCounter = 0;
   public lastEventMessage: string | null = null;
   public bombAlert: BombEventNotification | null = null;
   public openingThreesShowcase: OpeningThreeCard[] | null = null;
+  public gamesPlayedCount = 0;
+  public previousWinnerPlayerId: string | null = null;
   public logs: GameLogEntry[] = [];
 
   constructor(id: string) {
@@ -319,6 +322,7 @@ export class Room {
 
     this.status = 'PLAYING';
     this.winnerPlayerId = null;
+    this.finishedRankCounter = 0;
     this.bombAlert = null;
     this.currentTrickPlays = [];
     this.isFirstTrickOfGame = true;
@@ -346,57 +350,86 @@ export class Room {
       }
     }
 
-    // Automatic Opening Phase:
-    // Every player places their 3(s) on the table.
-    // The player holding the 3 of Spades (3♠) wins the opening phase and leads trick 1.
-    const openingThrees: OpeningThreeCard[] = [];
-    let startingSeat: PlayerSeat = 0;
+    const isFirstGameInRoom = this.gamesPlayedCount === 0;
 
-    for (let seat = 0; seat < 4; seat++) {
-      const player = playersBySeat.get(seat as PlayerSeat);
-      if (player) {
-        const threes = player.hand.filter((c) => c.rank === '3');
-        for (const t of threes) {
-          const isWinner = t.id === STARTING_CARD_ID;
-          openingThrees.push({
-            card: t,
-            playerName: player.displayName,
-            isWinner,
-          });
-          if (isWinner) {
-            startingSeat = player.seat;
+    if (isFirstGameInRoom) {
+      // Automatic Opening Phase (ONLY on the very first game of the room):
+      // Every player places their 3(s) on the table.
+      // The player holding the 3 of Spades (3♠) wins the opening phase and leads trick 1.
+      const openingThrees: OpeningThreeCard[] = [];
+      let startingSeat: PlayerSeat = 0;
+
+      for (let seat = 0; seat < 4; seat++) {
+        const player = playersBySeat.get(seat as PlayerSeat);
+        if (player) {
+          const threes = player.hand.filter((c) => c.rank === '3');
+          for (const t of threes) {
+            const isWinner = t.id === STARTING_CARD_ID;
+            openingThrees.push({
+              card: t,
+              playerName: player.displayName,
+              isWinner,
+            });
+            if (isWinner) {
+              startingSeat = player.seat;
+            }
           }
+          // Remove 3s from the player's hand as they were placed on the table
+          player.hand = player.hand.filter((c) => c.rank !== '3');
         }
-        // Remove 3s from the player's hand as they were placed on the table
-        player.hand = player.hand.filter((c) => c.rank !== '3');
       }
+
+      // Sort opening threes by suit for clean display (Diamond < Club < Heart < Spade)
+      openingThrees.sort(
+        (a, b) => DEFAULT_SUIT_VALUES[a.card.suit] - DEFAULT_SUIT_VALUES[b.card.suit]
+      );
+      this.openingThreesShowcase = openingThrees;
+
+      const startingPlayer = playersBySeat.get(startingSeat);
+      this.currentTurnSeat = startingSeat;
+      this.trickLeadPlayerId = startingPlayer?.id ?? null;
+      this.activeTrickSeats = new Set<PlayerSeat>([0, 1, 2, 3]);
+      this.isFirstTrickOfGame = false; // Opening 3s rule completed!
+
+      const threesList = openingThrees
+        .map(
+          (t) =>
+            `${t.card.rank}${SUIT_SYMBOLS[t.card.suit]}${
+              t.card.id === STARTING_CARD_ID ? ' (Highest)' : ''
+            } (${t.playerName})`
+        )
+        .join(', ');
+
+      this.addLog(
+        `🎲 Opening Phase (Game 1): All 3s placed on the table [${threesList}]. ${startingPlayer?.displayName} holds the highest 3 (3♠) and takes the lead to play any combination!`,
+        'info'
+      );
+    } else {
+      // Subsequent / Rematch Game:
+      // Threes rule is NOT applied!
+      // Players keep all their cards in hand (full 13-card hands).
+      // Winner of the previous game goes first with any combination!
+      this.openingThreesShowcase = null;
+
+      let startingPlayer = this.previousWinnerPlayerId
+        ? this.players.get(this.previousWinnerPlayerId)
+        : undefined;
+
+      if (!startingPlayer) {
+        startingPlayer = playersBySeat.get(0) || Array.from(this.players.values())[0];
+      }
+
+      const startingSeat = startingPlayer.seat;
+      this.currentTurnSeat = startingSeat;
+      this.trickLeadPlayerId = startingPlayer.id;
+      this.activeTrickSeats = new Set<PlayerSeat>([0, 1, 2, 3]);
+      this.isFirstTrickOfGame = false;
+
+      this.addLog(
+        `👑 Game #${this.gamesPlayedCount + 1}: ${startingPlayer.displayName} won the previous game and goes first to lead any combination!`,
+        'info'
+      );
     }
-
-    // Sort opening threes by suit for clean display (Clubs < Diamonds < Hearts < Spades)
-    openingThrees.sort(
-      (a, b) => DEFAULT_SUIT_VALUES[a.card.suit] - DEFAULT_SUIT_VALUES[b.card.suit]
-    );
-    this.openingThreesShowcase = openingThrees;
-
-    const startingPlayer = playersBySeat.get(startingSeat);
-    this.currentTurnSeat = startingSeat;
-    this.trickLeadPlayerId = startingPlayer?.id ?? null;
-    this.activeTrickSeats = new Set<PlayerSeat>([0, 1, 2, 3]);
-    this.isFirstTrickOfGame = false; // Opening 3s rule completed!
-
-    const threesList = openingThrees
-      .map(
-        (t) =>
-          `${t.card.rank}${SUIT_SYMBOLS[t.card.suit]}${
-            t.card.id === STARTING_CARD_ID ? ' (Highest)' : ''
-          } (${t.playerName})`
-      )
-      .join(', ');
-
-    this.addLog(
-      `🎲 Opening Phase: All 3s placed on the table [${threesList}]. ${startingPlayer?.displayName} holds the highest 3 (3♠) and takes the lead to play any combination!`,
-      'info'
-    );
   }
 
   public playCards(playerId: string, cardIds: string[]): { success: boolean; error?: string } {
@@ -479,38 +512,100 @@ export class Room {
       'play'
     );
 
+    // Check if player has emptied their hand
+    const playerEmptiedHand = player.hand.length === 0 && !player.finishedRank;
+    if (playerEmptiedHand) {
+      this.finishedRankCounter++;
+      player.finishedRank = this.finishedRankCounter;
+
+      const rankTitle =
+        this.finishedRankCounter === 1
+          ? '🥇 1st Place (Winner)'
+          : this.finishedRankCounter === 2
+          ? '🥈 2nd Place'
+          : '🥉 3rd Place';
+
+      this.addLog(
+        `🎉 ${player.displayName} emptied their hand and claimed ${rankTitle}!`,
+        'win'
+      );
+
+      // Check how many players still have cards
+      const remainingWithCards = Array.from(this.players.values()).filter(
+        (p) => p.hand.length > 0
+      );
+
+      // If only 1 player remains with cards (meaning 3 players finished), that last player is 4th Place (Loser)!
+      if (remainingWithCards.length <= 1) {
+        if (remainingWithCards.length === 1) {
+          const loser = remainingWithCards[0];
+          this.finishedRankCounter++;
+          loser.finishedRank = 4;
+          this.addLog(
+            `💥 Game over! ${loser.displayName} is left with ${loser.hand.length} card(s) and takes 4th Place (Loser)!`,
+            'info'
+          );
+        }
+        this.finishGame();
+        return { success: true };
+      }
+
+      this.addLog(
+        `⚔️ The game continues for the remaining ${remainingWithCards.length} players!`,
+        'info'
+      );
+    }
+
     // Case A: Bomb Countered a Single 2!
     if (isBombingSingleTwo) {
       const bombedPlayerName = latestPlay.playerName;
+      const bombedPlayer =
+        this.players.get(latestPlay.playerId) || this.getPlayerBySeat(latestPlay.seat);
+
       this.bombAlert = {
         bomberName: player.displayName,
         bombedPlayerName,
         bombType: combination.type as 'BOMB_FOUR_OF_A_KIND' | 'BOMB_STRAIGHT_FLUSH',
         cards: combination.cards,
-        message: `BOOM! 💣 ${player.displayName} BOMBED ${bombedPlayerName}'s Single 2 with a ${combination.displayName}!`,
+        message: `💥💣 INSTANT KNOCKOUT! ${player.displayName} BOMBED ${bombedPlayerName}'s Single 2! Game Over!`,
       };
 
       this.addLog(this.bombAlert.message, 'bomb');
+      this.addLog(
+        `💀 ${bombedPlayerName} played a Single 2 and got BOMBED! ${bombedPlayerName} immediately loses (4th Place)! ${player.displayName} wins (1st Place)!`,
+        'win'
+      );
 
-      if (player.hand.length === 0) {
-        this.finishGame(player);
-        return { success: true };
+      // Bomber takes 1st Place
+      player.finishedRank = 1;
+      this.winnerPlayerId = player.id;
+
+      // Bombed player takes 4th Place (Loser)
+      if (bombedPlayer) {
+        bombedPlayer.finishedRank = 4;
       }
 
-      this.resolveTrickEnd(player.seat, `${player.displayName} won the bomb challenge and leads the next trick!`);
+      // Other 2 players get 2nd and 3rd place by fewest cards remaining
+      const otherPlayers = Array.from(this.players.values()).filter(
+        (p) => p.id !== player.id && (!bombedPlayer || p.id !== bombedPlayer.id)
+      );
+      otherPlayers.sort((a, b) => a.hand.length - b.hand.length);
+      if (otherPlayers[0]) otherPlayers[0].finishedRank = 2;
+      if (otherPlayers[1]) otherPlayers[1].finishedRank = 3;
+
+      this.finishGame();
       return { success: true };
     }
 
-    // Case B: Player has 0 cards left -> Game Win!
+    // If player has emptied their hand, remove from active trick seats
     if (player.hand.length === 0) {
-      this.finishGame(player);
-      return { success: true };
+      this.activeTrickSeats.delete(player.seat);
     }
 
     // Advance turn to next active trick player
     const nextSeat = getNextActiveSeat(player.seat, this.activeTrickSeats);
     if (nextSeat === null || nextSeat === player.seat) {
-      this.resolveTrickEnd(player.seat, `${player.displayName} won the trick and leads next!`);
+      this.resolveTrickEnd(player.seat, `${player.displayName} won the trick!`);
     } else {
       this.currentTurnSeat = nextSeat;
     }
@@ -540,19 +635,25 @@ export class Room {
     this.activeTrickSeats.delete(player.seat);
     this.addLog(`${player.displayName} passed.`, 'pass');
 
-    if (this.activeTrickSeats.size <= 1) {
-      const winnerSeat = Array.from(this.activeTrickSeats)[0] ?? latestPlay.seat;
+    // Remaining challengers: any active player in the trick other than the one who made the standing play
+    const remainingChallengers = Array.from(this.activeTrickSeats).filter(
+      (seat) => seat !== latestPlay.seat
+    );
+
+    // If nobody else is fighting the card (all other active players passed), the play stands!
+    if (remainingChallengers.length === 0) {
+      const winnerSeat = latestPlay.seat;
       const winnerPlayer = this.getPlayerBySeat(winnerSeat);
       const winnerName = winnerPlayer?.displayName || 'Player';
 
-      this.resolveTrickEnd(winnerSeat, `${winnerName} won the trick (all other players passed) and leads next!`);
+      this.resolveTrickEnd(winnerSeat, `${winnerName}'s play stood (all other players passed)!`);
     } else {
       const nextSeat = getNextActiveSeat(player.seat, this.activeTrickSeats);
       if (nextSeat !== null) {
         this.currentTurnSeat = nextSeat;
       } else {
         const winnerSeat = latestPlay.seat;
-        this.resolveTrickEnd(winnerSeat, `${latestPlay.playerName} won the trick!`);
+        this.resolveTrickEnd(winnerSeat, `${latestPlay.playerName}'s play stood!`);
       }
     }
 
@@ -598,33 +699,76 @@ export class Room {
     this.addLog(logMsg, 'info');
 
     this.currentTrickPlays = [];
-    this.currentTurnSeat = winnerSeat;
-    const winner = this.getPlayerBySeat(winnerSeat);
-    this.trickLeadPlayerId = winner?.id ?? null;
 
+    // All players who still have cards
     const activeSeats = new Set<PlayerSeat>();
     for (const p of this.players.values()) {
       if (p.hand.length > 0) {
         activeSeats.add(p.seat);
       }
     }
+
+    if (activeSeats.size <= 1) {
+      // 1 or 0 players left with cards -> Game ends!
+      const remaining = Array.from(this.players.values()).filter((p) => p.hand.length > 0);
+      if (remaining.length === 1 && !remaining[0].finishedRank) {
+        this.finishedRankCounter++;
+        remaining[0].finishedRank = 4;
+        this.addLog(
+          `💥 Game over! ${remaining[0].displayName} is left with ${remaining[0].hand.length} card(s) and takes 4th Place (Loser)!`,
+          'info'
+        );
+      }
+      this.finishGame();
+      return;
+    }
+
+    // Determine who leads next:
+    // If winner still has cards, they lead.
+    // If winner finished their hand (e.g. 1st or 2nd place), lead passes clockwise to the next active player with cards!
+    let nextLeadSeat = winnerSeat;
+    const winnerPlayer = this.getPlayerBySeat(winnerSeat);
+    if (!winnerPlayer || winnerPlayer.hand.length === 0) {
+      const nextActiveLead = getNextActiveSeat(winnerSeat, activeSeats);
+      if (nextActiveLead !== null) {
+        nextLeadSeat = nextActiveLead;
+      } else {
+        nextLeadSeat = Array.from(activeSeats)[0];
+      }
+      const nextLeadPlayer = this.getPlayerBySeat(nextLeadSeat);
+      this.addLog(
+        `➡️ ${winnerPlayer?.displayName || 'Winner'} has emptied their hand! The turn goes to ${nextLeadPlayer?.displayName || 'next player'} to lead the next trick.`,
+        'info'
+      );
+    }
+
+    this.currentTurnSeat = nextLeadSeat;
+    const nextLeadPlayer = this.getPlayerBySeat(nextLeadSeat);
+    this.trickLeadPlayerId = nextLeadPlayer?.id ?? null;
     this.activeTrickSeats = activeSeats;
   }
 
-  private finishGame(winner: InternalPlayer): void {
+  private finishGame(): void {
     this.status = 'ENDED';
-    this.winnerPlayerId = winner.id;
-    winner.finishedRank = 1;
+    const firstPlace = Array.from(this.players.values()).find((p) => p.finishedRank === 1);
+    this.winnerPlayerId = firstPlace?.id ?? null;
 
-    const remainingPlayers = Array.from(this.players.values())
-      .filter((p) => p.id !== winner.id)
-      .sort((a, b) => a.hand.length - b.hand.length);
+    // Track game count and previous winner for next rematch
+    this.gamesPlayedCount++;
+    this.previousWinnerPlayerId = this.winnerPlayerId;
 
-    remainingPlayers.forEach((p, idx) => {
-      p.finishedRank = idx + 2;
-    });
+    // Any remaining player without a rank gets assigned rank
+    const unranked = Array.from(this.players.values()).filter((p) => !p.finishedRank);
+    unranked.sort((a, b) => a.hand.length - b.hand.length);
+    let nextRank = this.finishedRankCounter + 1;
+    for (const p of unranked) {
+      p.finishedRank = nextRank++;
+    }
 
-    this.addLog(`🏆 GAME OVER! ${winner.displayName} has emptied their hand and won the game!`, 'win');
+    this.addLog(
+      `🏆 GAME OVER! 1st: ${firstPlace?.displayName || 'Winner'}!`,
+      'win'
+    );
   }
 
   public restartGame(): void {
@@ -632,6 +776,7 @@ export class Room {
 
     this.status = 'LOBBY';
     this.winnerPlayerId = null;
+    this.finishedRankCounter = 0;
     this.bombAlert = null;
     this.openingThreesShowcase = null;
     this.currentTrickPlays = [];
@@ -643,7 +788,11 @@ export class Room {
       p.finishedRank = undefined;
     }
 
-    this.addLog('Game reset for rematch. Players ready up to begin!', 'info');
+    const prevWinner = this.previousWinnerPlayerId ? this.players.get(this.previousWinnerPlayerId) : undefined;
+    this.addLog(
+      `Game reset for rematch (Game #${this.gamesPlayedCount + 1}). ${prevWinner?.displayName || 'Winner'} will go first! Players ready up to begin!`,
+      'info'
+    );
   }
 
   public getPlayerBySeat(seat: PlayerSeat): InternalPlayer | undefined {
@@ -666,7 +815,7 @@ export class Room {
         displayName: p.displayName,
         isReady: p.isReady,
         cardCount: p.hand.length,
-        passedInCurrentTrick: !this.activeTrickSeats.has(p.seat) && this.status === 'PLAYING',
+        passedInCurrentTrick: !this.activeTrickSeats.has(p.seat) && this.status === 'PLAYING' && p.hand.length > 0,
         isConnected: p.isConnected,
         isHost: p.isHost,
         isBot: p.isBot,

@@ -64,9 +64,9 @@ describe('2. Card Ranking & 3♠ Starting Player', () => {
     expect(RANK_VALUES['2']).toBeGreaterThan(RANK_VALUES['A']);
   });
 
-  it('suit ranking order: Clubs < Diamonds < Hearts < Spades', () => {
-    expect(DEFAULT_SUIT_VALUES['C']).toBe(0);
-    expect(DEFAULT_SUIT_VALUES['D']).toBe(1);
+  it('suit ranking order: Diamonds < Clubs < Hearts < Spades', () => {
+    expect(DEFAULT_SUIT_VALUES['D']).toBe(0);
+    expect(DEFAULT_SUIT_VALUES['C']).toBe(1);
     expect(DEFAULT_SUIT_VALUES['H']).toBe(2);
     expect(DEFAULT_SUIT_VALUES['S']).toBe(3);
   });
@@ -482,11 +482,34 @@ describe('7. Server Room State, Turns, Passing & Win Lifecycle', () => {
     const bobPlay = room.playCards(bob.id, ['7_C', '7_D', '7_H', '7_S']);
     expect(bobPlay.success).toBe(true);
 
-    // Bomb ends trick immediately! Bob has 0 cards left -> Game Ended!
+    // Bombing a Single 2 ends the game immediately!
+    // Bob (bomber) takes 1st Place (Winner)
+    // Alice (bombed) takes 4th Place (Loser)
     expect(room.status).toBe('ENDED');
+    expect(bob.finishedRank).toBe(1);
+    expect(alice.finishedRank).toBe(4);
     expect(room.winnerPlayerId).toBe(bob.id);
     expect(room.bombAlert).not.toBeNull();
     expect(room.bombAlert?.bomberName).toBe('Bob');
+    expect(room.bombAlert?.bombedPlayerName).toBe('Alice');
+
+    // Test rematch in same room: 3s rule is skipped and previous winner (Bob) goes first!
+    room.restartGame();
+    expect(room.status).toBe('LOBBY');
+    for (let s = 0; s < 4; s++) {
+      room.setReady(room.getPlayerBySeat(s as any)!.id, true);
+    }
+    room.startGame();
+    expect(room.status).toBe('PLAYING');
+    // Opening 3s showcase should be null on rematch!
+    expect(room.openingThreesShowcase).toBeNull();
+    // Bob should have the opening turn!
+    expect(room.currentTurnSeat).toBe(bob.seat);
+    expect(room.trickLeadPlayerId).toBe(bob.id);
+    // Everyone should keep all 13 dealt cards!
+    for (const p of room.players.values()) {
+      expect(p.hand.length).toBe(13);
+    }
   });
 
   it('handles temporary disconnect and seamless reconnection', () => {
@@ -502,5 +525,45 @@ describe('7. Server Room State, Turns, Passing & Win Lifecycle', () => {
     expect(reconnectRes.isReconnect).toBe(true);
     expect(bob.isConnected).toBe(true);
     expect(bob.socketId).toBe('new_socket_123');
+  });
+
+  it('continues game after 1st and 2nd place until 3rd place finishes, leaving exactly 1 loser (4th place)', () => {
+    const alice = room.getPlayerBySeat(0)!;
+    const bob = room.getPlayerBySeat(1)!;
+    const charlie = room.getPlayerBySeat(2)!;
+    const dave = room.getPlayerBySeat(3)!;
+
+    alice.hand = [makeCard('4', 'S')];
+    bob.hand = [makeCard('5', 'S')];
+    charlie.hand = [makeCard('6', 'S')];
+    dave.hand = [makeCard('7', 'S'), makeCard('8', 'S')];
+
+    room.status = 'PLAYING';
+    room.currentTrickPlays = [];
+    room.currentTurnSeat = 0;
+    room.isFirstTrickOfGame = false;
+    room.activeTrickSeats = new Set([0, 1, 2, 3]);
+
+    // 1. Alice plays her last card -> 1st Place!
+    const r1 = room.playCards(alice.id, ['4_S']);
+    expect(r1.success).toBe(true);
+    expect(alice.finishedRank).toBe(1);
+    expect(room.status).toBe('PLAYING');
+
+    // 2. Bob beats with his last card -> 2nd Place!
+    const r2 = room.playCards(bob.id, ['5_S']);
+    expect(r2.success).toBe(true);
+    expect(bob.finishedRank).toBe(2);
+    expect(room.status).toBe('PLAYING');
+
+    // 3. Charlie beats with his last card -> 3rd Place!
+    const r3 = room.playCards(charlie.id, ['6_S']);
+    expect(r3.success).toBe(true);
+    expect(charlie.finishedRank).toBe(3);
+
+    // Now 3 players finished! Dave is left with cards -> Dave is 4th Place (Loser)!
+    expect(room.status).toBe('ENDED');
+    expect(dave.finishedRank).toBe(4);
+    expect(room.winnerPlayerId).toBe(alice.id);
   });
 });

@@ -218,6 +218,13 @@ export function App() {
     ? 'LOBBY'
     : 'GAME';
 
+  // Fallback player ID to prevent blank screen if local state was temporarily out of sync
+  const effectivePlayerId =
+    myPlayerId ||
+    publicState?.players.find((p) => p.displayName === displayName)?.id ||
+    publicState?.players[0]?.id ||
+    null;
+
   return (
     <div className="min-h-screen w-full flex flex-col bg-slate-950 font-sans text-slate-100">
       {/* Global Error Banner */}
@@ -239,11 +246,11 @@ export function App() {
         />
       )}
 
-      {currentView === 'LOBBY' && publicState && myPlayerId && (
+      {currentView === 'LOBBY' && publicState && effectivePlayerId && (
         <div className="flex-1 flex flex-col justify-center">
           <Lobby
             roomState={publicState}
-            myPlayerId={myPlayerId}
+            myPlayerId={effectivePlayerId}
             onReadyToggle={handleReadyToggle}
             onSwitchSeat={handleSwitchSeat}
             onAddBot={handleAddBot}
@@ -255,11 +262,11 @@ export function App() {
         </div>
       )}
 
-      {currentView === 'GAME' && publicState && myPlayerId && (
+      {currentView === 'GAME' && publicState && effectivePlayerId && (
         <GameTable
           publicState={publicState}
           myHand={myHand}
-          myPlayerId={myPlayerId}
+          myPlayerId={effectivePlayerId}
           onPlayCards={handlePlayCards}
           onPass={handlePass}
           onSendMessage={handleSendMessage}

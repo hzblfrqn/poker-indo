@@ -7,7 +7,7 @@ import {
   isValidLeadPlay,
 } from '@shared/evaluator';
 import { sounds } from '../utils/audio';
-import { Play, SkipForward, ArrowUpDown, X, Check, AlertCircle, Sparkles } from 'lucide-react';
+import { Play, SkipForward, ArrowUpDown, X, Check, AlertCircle, Sparkles, Trophy } from 'lucide-react';
 
 interface ActionBarProps {
   hand: Card[];
@@ -22,6 +22,7 @@ interface ActionBarProps {
   latestPlay: PlayedTrick | null;
   isFirstTrickOfGame: boolean;
   hasPassedThisTrick: boolean;
+  myFinishedRank?: number;
 }
 
 function getInvalidComboHint(cards: Card[]): string {
@@ -53,20 +54,21 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   latestPlay,
   isFirstTrickOfGame,
   hasPassedThisTrick,
+  myFinishedRank,
 }) => {
   const [clickedDisabledReason, setClickedDisabledReason] = useState<string | null>(null);
 
-  // Extract selected cards
+  // Extract selected cards (unconditionally at top level)
   const selectedCards = useMemo(() => {
     return hand.filter((c) => selectedCardIds.has(c.id));
   }, [hand, selectedCardIds]);
 
-  // Real-time combination detection
+  // Real-time combination detection (unconditionally at top level)
   const detectedCombo: CardCombination | null = useMemo(() => {
     return detectCombination(selectedCards);
   }, [selectedCards]);
 
-  // Real-time legality check
+  // Real-time legality check (unconditionally at top level)
   const playValidity = useMemo<{ valid: boolean; reason?: string }>(() => {
     if (!isTurn) {
       return { valid: false, reason: 'Not your turn right now' };
@@ -106,6 +108,36 @@ export const ActionBar: React.FC<ActionBarProps> = ({
     }
   };
 
+  // If local player finished their cards, display finish spectator state safely!
+  if (Boolean(myFinishedRank) || hand.length === 0) {
+    const rankLabel =
+      myFinishedRank === 1
+        ? '🥇 1st Place (Winner)'
+        : myFinishedRank === 2
+        ? '🥈 2nd Place'
+        : myFinishedRank === 3
+        ? '🥉 3rd Place'
+        : '💥 4th Place (Loser)';
+
+    return (
+      <div className="w-full flex flex-col items-center justify-center py-5 px-4 text-center select-none animate-in fade-in duration-300">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-2">
+          <div className="px-5 py-2 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-sm sm:text-base shadow-glow-gold flex items-center gap-2 animate-bounce">
+            <Trophy size={18} />
+            <span>YOU FINISHED: {rankLabel}</span>
+          </div>
+          <div className="px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 shadow-md">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>Live Spectator Mode</span>
+          </div>
+        </div>
+        <p className="text-slate-300 text-xs sm:text-sm max-w-md">
+          You've played all your cards! Watch the remaining players battle for position on the table above.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full flex flex-col items-center select-none pt-2 pb-4">
       {/* Turn status & selection indicator banner */}
@@ -113,16 +145,16 @@ export const ActionBar: React.FC<ActionBarProps> = ({
         {/* Left: Turn / Pass State */}
         <div className="flex items-center gap-2">
           {hasPassedThisTrick ? (
-            <span className="px-3 py-1 rounded-full bg-red-950/70 border border-red-700/50 text-red-300 text-xs font-semibold">
+            <span className="px-3 py-1.5 rounded-full bg-red-950/80 border border-red-700/60 text-red-300 text-xs font-bold shadow-md">
               You passed this trick (waiting for next trick)
             </span>
           ) : isTurn ? (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600/30 border border-emerald-500 text-emerald-300 text-xs font-bold animate-pulse shadow-glow-emerald">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              YOUR TURN TO ACT
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-green-400 text-slate-950 text-xs sm:text-sm font-black animate-pulse shadow-[0_0_25px_rgba(52,211,153,0.8)] border border-white">
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-950 animate-ping" />
+              ⚡ YOUR TURN TO ACT
             </div>
           ) : (
-            <span className="px-3 py-1 rounded-full bg-slate-800/80 text-slate-400 text-xs font-medium">
+            <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-slate-400 text-xs font-medium">
               Waiting for other players...
             </span>
           )}
@@ -189,6 +221,13 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           )}
         </div>
       </div>
+
+      {/* Visual Cue for player in turn when no cards selected yet */}
+      {isTurn && selectedCardIds.size === 0 && (
+        <div className="my-1 px-4 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/60 text-emerald-300 text-xs font-bold animate-bounce flex items-center gap-1.5 shadow-md">
+          <span>👇 Select cards from your hand below to play</span>
+        </div>
+      )}
 
       {/* Local Player's Hand of Cards - Spaced out side-by-side so cards are NEVER in front of each other */}
       <div className="w-full max-w-7xl overflow-x-auto py-4 px-4 flex justify-start sm:justify-center">

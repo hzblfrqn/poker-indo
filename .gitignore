@@ -9,3 +9,5 @@ server/node_modules/
 dist/
 build/
 coverage/
+*.exe
+cloudflared.exe

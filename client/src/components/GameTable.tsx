@@ -57,11 +57,17 @@ export const GameTable: React.FC<GameTableProps> = ({
   const mySeat: PlayerSeat = me?.seat ?? 0;
   const isMyTurn = publicState.currentTurnSeat === mySeat;
 
-  // Sound chime when it becomes local player's turn
+  // Sound chime and update browser tab title when it becomes local player's turn
   useEffect(() => {
     if (isMyTurn) {
       sounds.playTurnNotification();
+      document.title = '🟢 [YOUR TURN!] Indonesian Poker';
+    } else {
+      document.title = 'Indonesian Poker (Capsa Banting)';
     }
+    return () => {
+      document.title = 'Indonesian Poker (Capsa Banting)';
+    };
   }, [isMyTurn]);
 
   // Screen shake and bomb audio on bomb explosion
@@ -201,15 +207,46 @@ export const GameTable: React.FC<GameTableProps> = ({
             </div>
           </div>
 
-          {/* Bottom Felt Spacer / Watermark */}
-          <div className="text-[11px] font-mono tracking-widest text-emerald-400/30 uppercase select-none pointer-events-none">
-            ♠ ♥ ♦ ♣ Capsa Banting Arena ♣ ♦ ♥ ♠
+          {/* Bottom Felt Turn Status Indicator - Eyesight cannot miss this! */}
+          <div className="w-full max-w-lg mx-auto my-2 z-20">
+            {me?.finishedRank ? (
+              <div className="py-2 px-5 rounded-2xl bg-slate-900/90 border border-gold/60 text-gold text-xs sm:text-sm font-bold text-center flex items-center justify-center gap-2 mx-auto w-fit shadow-glow-gold">
+                <span>
+                  🎉 You finished in {me.finishedRank === 1 ? '1st Place' : me.finishedRank === 2 ? '2nd Place' : '3rd Place'}! Battle continuing for remaining positions...
+                </span>
+              </div>
+            ) : isMyTurn ? (
+              <div className="w-full py-2.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-600 text-white font-black text-sm sm:text-base text-center shadow-[0_0_25px_rgba(16,185,129,0.5)] border-2 border-emerald-300 animate-pulse flex items-center justify-center gap-2.5">
+                <span className="w-3 h-3 rounded-full bg-white animate-ping" />
+                <span>👉 IT'S YOUR TURN! Pick your card(s) and play 👈</span>
+              </div>
+            ) : (
+              <div className="py-1 px-4 rounded-full bg-slate-950/70 border border-slate-700/80 text-slate-300 text-xs text-center flex items-center justify-center gap-2 mx-auto w-fit">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                <span>
+                  Waiting for{' '}
+                  <strong className="text-amber-300 font-bold">
+                    {publicState.players.find((p) => p.seat === publicState.currentTurnSeat)?.displayName || 'opponent'}
+                  </strong>{' '}
+                  to play...
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Felt Spacer / Watermark showing ♦ < ♣ < ♥ < ♠ hierarchy */}
+          <div className="text-[11px] font-mono tracking-widest text-emerald-400/40 uppercase select-none pointer-events-none">
+            ♦ ♣ ♥ ♠ Capsa Banting Arena ♠ ♥ ♣ ♦
           </div>
         </div>
       </main>
 
-      {/* Bottom Area: Local Player Controls & Hand */}
-      <footer className="w-full bg-slate-950/90 backdrop-blur-md border-t border-slate-800/80 z-20">
+      {/* Bottom Area: Local Player Controls & Hand - Strongly illuminated when your turn */}
+      <footer className={`w-full backdrop-blur-md transition-all duration-300 z-20 ${
+        isMyTurn
+          ? 'bg-slate-950/95 border-t-2 border-emerald-400 shadow-[0_-12px_45px_rgba(16,185,129,0.35)] ring-2 ring-emerald-500/40'
+          : 'bg-slate-950/90 border-t border-slate-800/80'
+      }`}>
         <ActionBar
           hand={localHand}
           selectedCardIds={selectedCardIds}
@@ -223,6 +260,7 @@ export const GameTable: React.FC<GameTableProps> = ({
           latestPlay={publicState.latestPlay}
           isFirstTrickOfGame={publicState.isFirstTrickOfGame}
           hasPassedThisTrick={Boolean(me?.passedInCurrentTrick)}
+          myFinishedRank={me?.finishedRank}
         />
       </footer>
 
@@ -236,6 +274,7 @@ export const GameTable: React.FC<GameTableProps> = ({
           players={publicState.players}
           myPlayerId={myPlayerId}
           isHost={Boolean(me?.isHost)}
+          bombAlert={publicState.bombAlert}
           onPlayAgain={onPlayAgain}
           onLeaveRoom={onLeaveRoom}
         />
